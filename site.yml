@@ -1,0 +1,22 @@
+---
+- hosts: all
+  become: yes
+  roles:
+    - common
+
+- hosts: devops
+  become: yes
+  roles:
+    - docker
+    - nginx
+
+- hosts: k8s
+  become: yes
+  roles:
+    - kubernetes
+
+- hosts: monitoring
+  become: yes
+  roles:
+    - monitoring
+    - databases

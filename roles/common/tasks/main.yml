@@ -1,0 +1,13 @@
+---
+- name: Update repository
+  apt:
+    update_cache: yes
+
+- name: Upgrade package
+  apt:
+    upgrade: dist
+
+- name: Install common tools
+  apt:
+    name: "{{ common_packages }}"
+    state: present

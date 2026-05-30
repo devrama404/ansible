@@ -1,0 +1,15 @@
+docker_users:
+  - ubuntu
+
+common_packages:
+  - git
+  - curl
+  - wget
+  - vim
+  - unzip
+  - zip
+  - jq
+  - htop
+  - tree
+  - net-tools
+  - python3-pip

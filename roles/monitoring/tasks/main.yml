@@ -1,0 +1,27 @@
+---
+- name: Create prometheus user
+  user:
+    name: prometheus
+    shell: /bin/false
+
+- name: Download Prometheus
+  unarchive:
+    src: https://github.com/prometheus/prometheus/releases/download/v2.53.0/prometheus-2.53.0.linux-amd64.tar.gz
+    dest: /opt
+    remote_src: yes
+
+- name: Download Node Exporter
+  unarchive:
+    src: https://github.com/prometheus/node_exporter/releases/download/v1.8.1/node_exporter-1.8.1.linux-amd64.tar.gz
+    dest: /opt
+    remote_src: yes
+
+- name: Install Grafana
+  apt:
+    deb: https://dl.grafana.com/enterprise/release/grafana-enterprise_11.1.0_amd64.deb
+
+- name: Start Grafana
+  service:
+    name: grafana-server
+    state: started
+    enabled: yes
