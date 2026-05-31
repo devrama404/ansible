@@ -206,40 +206,6 @@ Contoh penggunaan Ansible Vault:
 ansible-vault encrypt group_vars/all.yml
 ```
 
----
-
-## 🛣 Roadmap
-
-* [ ] Jenkins Deployment
-* [ ] SonarQube Deployment
-* [ ] Harbor Registry
-* [ ] ArgoCD Integration
-* [ ] ELK Stack
-* [ ] Loki + Promtail
-* [ ] GitLab Runner
-* [ ] Kubernetes HA Cluster
-* [ ] HAProxy Load Balancer
-* [ ] Vault Integration
-* [ ] OpenTelemetry
-
----
-
-## 🤝 Contributing
-
-Contributions, issues, and feature requests are welcome.
-
-1. Fork repository
-2. Create feature branch
-3. Commit changes
-4. Open Pull Request
-
----
-
-## 📄 License
-
-This project is licensed under the MIT License.
-
----
 
 ## ⭐ Support
 
