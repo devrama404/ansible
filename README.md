@@ -1,4 +1,5 @@
-```markdown
+---
+
 # Linux Fleet Automation & Network Hardening
 
 Proyek ini bertujuan untuk mengotomatisasi penyediaan (*provisioning*), konfigurasi, dan pengamanan (*security hardening*) pada sekumpulan server Linux (Ubuntu 24.04) yang berjalan di AWS EC2. Otomatisasi ini digerakkan oleh **Ansible** untuk manajemen konfigurasi skala besar, serta **Shell Script** untuk kebutuhan audit sistem dan *backup* harian.
@@ -19,153 +20,85 @@ Public IP     Public IP      Public IP
 
 ```
 
-## 📁 Struktur Repositori
+## 📂 Struktur Direktori
+
+Proyek ini menggunakan struktur direktori berbasis *roles* agar rapi dan modular:
 
 ```text
-linux-fleet-automation/
-│
-├── README.md                 # Dokumentasi utama proyek
-├── inventory/                
-│   ├── inventory.ini         # Static inventory Ansible
-│   └── aws_ec2.yml           # Dynamic inventory AWS
-├── playbooks/
-│   ├── site.yml              # Playbook untuk instalasi paket dasar (Nginx, dll)
-│   ├── hardening.yml         # Playbook untuk keamanan (SSH, UFW, Fail2ban)
-│   └── backup.yml            # (Opsional) Playbook untuk manajemen backup
-├── scripts/
-│   ├── audit.sh              # Script untuk mengecek status dan resource server
-│   └── backup.sh             # Script untuk backup direktori /etc
-├── docs/
-│   ├── security-audit-report.md # Laporan hasil hardening
-│   ├── backup-report.md         # Laporan konfigurasi backup
-│   └── topology.png             # Gambar topologi jaringan
-└── ansible.cfg               # Konfigurasi kustom Ansible
+.
+├── group_vars/
+│   └── all.yml             # Variabel global yang berlaku untuk semua host
+├── roles/                  # Kumpulan module/task untuk setiap layanan
+│   ├── common/tasks        # Konfigurasi dasar dan hardening untuk semua server
+│   ├── databases/tasks     # Konfigurasi database
+│   ├── docker/tasks        # Instalasi dan setup Docker
+│   ├── kubernetes/tasks    # Setup cluster Kubernetes
+│   ├── monitoring/tasks    # Setup tools monitoring (Prometheus/Grafana, dll)
+│   └── nginx/tasks         # Konfigurasi Nginx web server/reverse proxy
+├── .gitignore              # Daftar file yang diabaikan oleh Git
+├── README.md               # Dokumentasi proyek (file ini)
+├── inventory.ini           # Daftar alamat IP dan pengelompokan server (hosts)
+└── site.yml                # Playbook utama yang mengatur urutan eksekusi (entrypoint)
 
 ```
 
----
+## ⚙️ Alur Pengerjaan (Step-by-Step)
 
-## 🚀 Panduan Langkah demi Langkah
+Berdasarkan konfigurasi pada `site.yml`, Ansible akan mengeksekusi tugas secara berurutan sesuai dengan kelompok server (*host groups*) sebagai berikut:
 
-### Langkah 1: Persiapan Infrastruktur (AWS EC2)
+1. **Tahap 1: Konfigurasi Dasar (Semua Server)**
+* **Target:** `hosts: all`
+* **Role:** `common`
+* **Deskripsi:** Ansible akan masuk ke seluruh server yang ada di `inventory.ini` untuk melakukan pembaruan sistem dasar, instalasi *package* wajib, dan penerapan keamanan dasar (*security hardening*).
 
-Pastikan Anda telah membuat 3 buah *instance* EC2 di AWS dengan spesifikasi berikut:
 
-* **OS:** Ubuntu 24.04
-* **Instance Type:** `t3.micro`
-* **Security Group:** Izinkan *Inbound* untuk port `22/tcp` (SSH), `80/tcp` (HTTP), dan `443/tcp` (HTTPS).
-* **Tag AWS:** Berikan tag `Role = webserver` pada ketiga *instance* (dibutuhkan untuk *Dynamic Inventory*).
+2. **Tahap 2: Setup Lingkungan DevOps**
+* **Target:** `hosts: devops`
+* **Roles:** `docker`, `nginx`
+* **Deskripsi:** Ansible akan menginstal mesin *container* Docker dan mengonfigurasi Nginx (biasanya sebagai *Reverse Proxy* atau *Web Server*) khusus pada server yang masuk ke dalam grup `devops`.
 
-### Langkah 2: Konfigurasi Inventory (Static & Dynamic)
 
-**1. Static Inventory (`inventory/inventory.ini`)**
-File ini memetakan IP publik server Anda dan mendefinisikan kunci SSH untuk akses jarak jauh. Sesuaikan IP dan letak file `.pem` Anda.
+3. **Tahap 3: Setup Cluster Kubernetes**
+* **Target:** `hosts: k8s`
+* **Role:** `kubernetes`
+* **Deskripsi:** Ansible akan menyiapkan komponen dan *tools* yang dibutuhkan untuk menjalankan klaster Kubernetes pada server di dalam grup `k8s`.
+
+
+4. **Tahap 4: Setup Database & Monitoring**
+* **Target:** `hosts: monitoring`
+* **Roles:** `monitoring`, `databases`
+* **Deskripsi:** Terakhir, Ansible akan menginstal layanan *database* serta alat pemantauan (*monitoring*) pada server yang masuk dalam grup `monitoring`.
+
+
+
+## 🚀 Cara Penggunaan
+
+### 1. Prasyarat
+
+* **Ansible** telah terinstal di mesin lokal (*Controller*).
+* Memiliki akses SSH (*Private Key*) ke seluruh server AWS EC2 tujuan.
+
+### 2. Persiapan Inventory (`inventory.ini`)
+
+Pastikan Anda telah mendefinisikan IP Publik dari *instances* EC2 ke dalam grup yang sesuai dengan `site.yml`. Contoh:
 
 ```ini
-[webservers]
-server-web1 ansible_host=108.136.40.150 ansible_user=ubuntu ansible_ssh_private_key_file=/path/to/server-web1.pem
-server-web2 ansible_host=108.136.249.240 ansible_user=ubuntu ansible_ssh_private_key_file=/path/to/server-web2.pem
-server-web3 ansible_host=108.136.44.234 ansible_user=ubuntu ansible_ssh_private_key_file=/path/to/server-web3.pem
+[devops]
+server_devops ansible_host=<IP_PUBLIC> ansible_user=ubuntu
+
+[k8s]
+server_k8s ansible_host=<IP_PUBLIC> ansible_user=ubuntu
+
+[monitoring]
+server_monitor ansible_host=<IP_PUBLIC> ansible_user=ubuntu
 
 ```
 
-*Test koneksi dasar:*
+### 3. Menjalankan Playbook
+
+Gunakan perintah berikut di terminal Anda untuk memulai proses otomatisasi secara berurutan:
 
 ```bash
-ansible all -i inventory/inventory.ini -m ping
+ansible-playbook -i inventory.ini site.yml
 
 ```
-
-**2. Dynamic Inventory AWS (`inventory/ec2.yml`)**
-Untuk lingkungan dinamis yang terus berkembang, kita menggunakan *plugin* EC2 Ansible yang akan secara otomatis mendeteksi *instance* berdasarkan tag `Role=webserver`.
-*Test Dynamic Inventory:*
-
-```bash
-ansible-inventory -i inventory/ec2.yml --graph
-
-```
-
-### Langkah 3: Base Setup & Provisioning (`playbooks/site.yml`)
-
-Playbook ini bertugas melakukan pembaruan sistem dan menginstal paket-paket penting seperti `git`, `htop`, `nginx`, `fail2ban`, dan `ufw`.
-
-* **Eksekusi Playbook:**
-```bash
-ansible-playbook -i inventory/inventory.ini playbooks/site.yml
-
-```
-
-
-* **Verifikasi Nginx:**
-```bash
-ansible all -i inventory/inventory.ini -m shell -a "systemctl status nginx --no-pager"
-
-```
-
-
-
-### Langkah 4: Security Hardening (`playbooks/hardening.yml`)
-
-Tahap kritis untuk mengamankan server dari serangan luar. Playbook ini akan:
-
-1. Mematikan fitur Login Root (`PermitRootLogin no`).
-2. Mematikan Login Password, memaksa penggunaan SSH Key (`PasswordAuthentication no`).
-3. Mengaktifkan *Firewall* (UFW) hanya untuk port 22, 80, dan 443.
-4. Mengaktifkan `fail2ban` untuk memblokir IP yang melakukan percobaan login SSH berulang kali secara gagal.
-
-* **Eksekusi Playbook:**
-```bash
-ansible-playbook -i inventory/inventory.ini playbooks/hardening.yml
-
-```
-
-
-* **Verifikasi Hardening:**
-```bash
-ansible all -i inventory/inventory.ini -b -m shell -a "ufw status"
-ansible all -i inventory/inventory.ini -m shell -a "grep PermitRootLogin /etc/ssh/sshd_config"
-
-```
-
-
-
-### Langkah 5: Audit & Backup (Shell Scripts)
-
-Di dalam direktori `scripts/`, terdapat *script* Bash untuk membantu operasional sehari-hari.
-
-**1. System Audit (`scripts/audit.sh`)**
-Mengumpulkan informasi *hostname*, versi OS, *uptime*, port yang terbuka, status *firewall*, dan kapasitas *disk*.
-
-```bash
-chmod +x scripts/audit.sh
-./scripts/audit.sh
-
-```
-
-**2. Automated Backup (`scripts/backup.sh`)**
-Mengompres direktori konfigurasi penting (`/etc`) menjadi file `.tar.gz` yang diberi stempel waktu (*timestamp*).
-
-```bash
-chmod +x scripts/backup.sh
-sudo ./scripts/backup.sh
-
-```
-
-**Konfigurasi Cron (Automasi Jadwal)**
-Untuk menjalankan *backup* secara otomatis setiap hari pukul 01:00 AM, tambahkan *job* berikut ke dalam `crontab`:
-
-```bash
-crontab -e
-# Tambahkan baris di bawah ini:
-0 1 * * * /opt/scripts/backup.sh
-
-```
-
----
-
-## 📑 Dokumentasi & Laporan Pelaksanaan
-
-Setelah setup selesai, semua hasil konfigurasi dicatat di dalam direktori `docs/`:
-
-* [Security Hardening Report](https://www.google.com/search?q=docs/hardening-report.md) - Detail kebijakan keamanan yang diterapkan.
-* [Backup Report](https://www.google.com/search?q=docs/backup-report.md) - Detail siklus dan lokasi direktori penyimpanan *backup*.
